@@ -78,7 +78,7 @@ schema = StructType([
     StructField("tolls_amount", DoubleType(), True),
     StructField("total_amount", DoubleType(), True)
                     ])
-PATH = "sorted_data*.csv"
+PATH = "/root/sorted_data*.csv"
 # PATH = "C:\\Users\\raska\\Cranfield data\\cloud computing\\trip_data"
 
 

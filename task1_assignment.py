@@ -4,31 +4,31 @@
 # In[ ]:
 
 
-import socket
-from time import sleep
+# import socket
+# from time import sleep
 
-host = '0.0.0.0'
-port = 12345
+# host = '0.0.0.0'
+# port = 12345
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.bind((host, port))
-s.listen(1)
-while True:
-    print('\nListening for a client at',host , port)
-    conn, addr = s.accept()
-    print('\nConnected by', addr)
-    try:
-        print('\nReading file...\n')
-        with open('C:\\Users\\raska\\Cranfield data\\cloud computing\\sorted_data.csv') as f:
-            for line in f:
-                out = line.encode('utf-8')
-                print('Sending line',line)
-                conn.send(out)
-                sleep(1)
-            print('End Of Stream.')
-    except socket.error:
-        print ('Error Occured.\n\nClient disconnected.\n')
-conn.close()
+# s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# s.bind((host, port))
+# s.listen(1)
+# while True:
+#     print('\nListening for a client at',host , port)
+#     conn, addr = s.accept()
+#     print('\nConnected by', addr)
+#     try:
+#         print('\nReading file...\n')
+#         with open('C:\\Users\\raska\\Cranfield data\\cloud computing\\sorted_data.csv') as f:
+#             for line in f:
+#                 out = line.encode('utf-8')
+#                 print('Sending line',line)
+#                 conn.send(out)
+#                 sleep(1)
+#             print('End Of Stream.')
+#     except socket.error:
+#         print ('Error Occured.\n\nClient disconnected.\n')
+# conn.close()
 
 
 # In[1]:
@@ -83,7 +83,7 @@ PATH = "sorted_data*.csv"
 
 
 
-data = spark.readStream.format("socket").option("host","0.0.0.0").option("port", 12345).option("header", "false").schema(schema).csv(PATH)
+data = spark.readStream.format("memory").option("header", "false").schema(schema).csv(PATH)
 
 
 # In[ ]:
@@ -160,7 +160,10 @@ from pyspark.sql.functions import count, avg
 from pyspark.sql.window import Window
 data = data.filter((data.cell_start !='999.999') & (data.cell_end !='999.999'))
 
-windowedData = data     .groupBy(window(data['dropoff_datetime'], "30 minutes", "30 minutes"), data['route_ID'])     .count()     .orderBy(col("window").asc(), col("count").desc())
+windowedData = data \
+    .groupBy(window(data['dropoff_datetime'], "30 minutes", "30 minutes"), data['route_ID']) \
+    .count()\
+    .orderBy(col("window").asc(), col("count").desc())
 
 # dataWindow = Window.partitionBy("window").orderBy(col("window").asc(), col("count").desc())
 
@@ -194,8 +197,11 @@ windowedData.printSchema()
 #   .option("path", "/Users/abc/hb_parquet/data") 
 
 # tumblingWindows = data.groupBy("route_ID", window("trip_endtime", "30 minutes")).count()
-query=windowedData.writeStream.format("memory")     .queryName("t1_stream")     .outputMode("complete")     .option("truncate", False)     .start()
-# .awaitTermination()
+query=windowedData.writeStream.format("console")\
+     .queryName("t1_stream")\
+     .outputMode("complete")\
+     .option("truncate", False)\
+     .start().awaitTermination()
 #     .partitionBy("window") \
 
 
@@ -216,15 +222,15 @@ query=windowedData.writeStream.format("memory")     .queryName("t1_stream")     
 # In[ ]:
 
 
-from IPython.display import display, clear_output
-from time import sleep
+# from IPython.display import display, clear_output
+# from time import sleep
 
 
-while True:
-    clear_output(wait=True)
-#     display(query.status)
-    display(spark.sql('SELECT * FROM t1_stream WHERE count=5 ').show(10))
-    sleep(1)
+# while True:
+#     clear_output(wait=True)
+# #     display(query.status)
+#     display(spark.sql('SELECT * FROM t1_stream WHERE count=5 ').show(10))
+#     sleep(1)
 
 
 # In[ ]:

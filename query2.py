@@ -345,7 +345,7 @@ profitabilityPerWindow = profitabilityData.withColumn('avg_profitability', F.mea
 profitabilityFinalOut = profitabilityFinal.select('window', 'cell',
                         'profitability', 'rank')
 profitabilityFinalOut.coalesce(1).write.csv('profitabilityFinalOut')
-profitabilityPerWindowOut.coalesce(1).write.csv('profitabilityPerWindowOut')
+profitabilityPerWindow.coalesce(1).write.csv('profitabilityPerWindowOut')
 
 # In[ ]:
 # TODO: Get profitability scale for time

@@ -2,11 +2,7 @@
 
 ## clear junk
 echo 'Refreshing directory...'
-rm -r rankedOut
-rm -r windowCountOut
-
-## Uncomment below to generate new data - may take some time!
-
+rm outputs
 
 #Running query 1
 echo 'Submitting query 1..'

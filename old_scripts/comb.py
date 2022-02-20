@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sat Feb 19 14:47:09 2022
-Script that runs query 1 in the CC assignment
+
 @author: raska
 """
 
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Feb 15 19:42:38 2022
+
+@author: raska
+"""
 import time
 import pandas as pd
 import os
@@ -12,35 +18,8 @@ import numpy as np
 from os import listdir
 from os.path import isfile, join
 
-# In[1]:
-# Defining functions - the contents of lib.py are pasted here as a workaround to spark's complexity
-# in submitting pyspark jobs with python dependencies
 class streamSimulator():
     def streamCSV(mainFile, folderName, dropColumns=None, batchSize = 100, timeInterval=1, fileWindow=None):
-        """
-        Simulates the sreaming of a single CSV file
-
-        Parameters
-        ----------
-        mainFile : string
-            Filepath of CSV file.
-        folderName : string
-            File directory where data would be streamed to.
-        dropColumns : array of strings, optional
-            List of columns to drop in the streaming process. The default is None.
-        batchSize : int, optional
-            Number of rows intended to be sent in one stream. The default is 100.
-        timeInterval : float, optional
-            Number of seconds between streams. The default is 1.
-        fileWindow : int, optional
-            The maximum allowable number of files that stay in the directory in each stream process. None is default and corresponds to all files saved.
-
-        Returns
-        -------
-        None.
-
-        """
-        
         idx = 0
         print('Streaming data ... \n Batchsize:', batchSize, '\n From CSVfile at: ', mainFile, '\n to directory .\\', folderName, '\n')
         for chunk in pd.read_csv(mainFile, chunksize=batchSize, index_col=False, header=None):
@@ -59,50 +38,11 @@ class streamSimulator():
         print('Sent ', idx, ' streams.')
     
     def deleteJunk(idx, foldername):
-        """
-        Deletes junk files
-
-        Parameters
-        ----------
-        idx : int
-            Order of file in stream.
-        foldername : string
-            Location of stream directory.
-
-        Returns
-        -------
-        None.
-
-        """
         fname = str(foldername)+'/stream_'+str(idx)+'.csv'
         if(os.path.exists(fname) and os.path.isfile(fname)):
           os.remove(fname)
           
     def splitStreamCSV(mainFile, headers, takeHeaders=None, batchSize = 100, timeInterval=1, fileWindow=None):
-        """
-        Streams a CSV file by splitting them into individual streams corresponding to the columns to be sent.
-
-        Parameters
-        ----------
-        mainFile : string
-            Source CSV file.
-        headers : string
-            Original headers of the CSV file.
-        takeHeaders : array of strings, optional
-            The selected columns to be sent - 5 columns mean there are 5 stream directories. The default is None.
-        batchSize : int, optional
-            number of rows to be sent in each stream. The default is 100.
-        timeInterval : float, optional
-            number of seconds between each stream. The default is 1.
-        fileWindow : int, optional
-            The maximum allowable number of files that stay in the directory in each stream process. None is default and corresponds to all files saved.
-
-
-        Returns
-        -------
-        None.
-
-        """
         if takeHeaders is None:
             print('streamError: No takeHeaders specified!')
         else:
@@ -129,24 +69,6 @@ class streamSimulator():
             pass
             
     def sortCSV(farePath, tripPath, readRows=1000):
-        """
-        sorts a number of CSV files and makes a single file out of them
-
-        Parameters
-        ----------
-        farePath : string
-            fare data file path.
-        tripPath : string
-            trip data file path.
-        readRows : int, optional
-            number of rows to be read form each csv. The default is 1000.
-
-        Returns
-        -------
-        appendedData : pandas dataframe
-            result of sorting and merging.
-
-        """
         fareFileNameList = [f for f in listdir(farePath) if isfile(join(farePath, f))]
         tripFileNameList = [f for f in listdir(tripPath) if isfile(join(tripPath, f))]
         # data = pd.read_csv(fileLoc, index_col=False, header=None, nrows = 1000)
@@ -176,23 +98,23 @@ class streamSimulator():
 class geoUtils():
     def assignRouteID(lat_start, lon_start, lat_end, lon_end):
         """
-        Assigns route ID
+        Legacy function (not in use)
 
         Parameters
         ----------
-        lat_start : int
-            Latitude of starting position.
-        lon_start : int
-            longitude of starting postion.
-        lat_end : int
-            latitude of ending position.
-        lon_end : int
-            longitude of ending position.
+        lat_start : TYPE
+            DESCRIPTION.
+        lon_start : TYPE
+            DESCRIPTION.
+        lat_end : TYPE
+            DESCRIPTION.
+        lon_end : TYPE
+            DESCRIPTION.
 
         Returns
         -------
-        string
-            string of start route -> end route.
+        TYPE
+            DESCRIPTION.
 
         """
         cellStartLatitude = 41.474937
@@ -210,19 +132,19 @@ class geoUtils():
         
     def convertToCell(lat, lon):
         """
-        converts latitude and longitude into cell
+
 
         Parameters
         ----------
-        lat : float
-            latitude.
-        lon : float
-            latitude.
+        lat : TYPE
+            DESCRIPTION.
+        lon : TYPE
+            DESCRIPTION.
 
         Returns
         -------
-        string
-            cell ID.
+        TYPE
+            DESCRIPTION.
 
         """
         cellStartLatitude = 41.474937
@@ -281,14 +203,17 @@ class geoUtils():
             return lonUnit
         else:
             return 999
-
+        
+class tools():
+    def sparkDFShape(self):
+        return (self.count(), len(self.columns))
 
 
 # In[1]:
-# Initialising spark
 import findspark
 findspark.init()
 findspark.find()
+
 
 import pyspark
 from pyspark.sql import SparkSession
@@ -302,7 +227,7 @@ from pyspark.sql.window import Window
 conf = pyspark.SparkConf().setAppName('SparkApp').set("spark.executor.memory", "9g").set("spark.driver.memory", "9g")
 sc = pyspark.SparkContext(conf=conf)
 spark = SparkSession(sc)
-#%% Loading files
+#%%
 from pyspark.sql.functions import *
 from pyspark.sql.types import *
 schema = StructType([
@@ -324,8 +249,8 @@ schema = StructType([
     StructField("tolls_amount", DoubleType(), True),
     StructField("total_amount", DoubleType(), True)
                     ])
-PATH = "./sorted_data*.csv"
-# PATH = "C:\\Users\\raska\\Cranfield data\\cloud computing\\sorted_data*.csv"
+# PATH = "/root/sorted_data*.csv"
+PATH = "C:\\Users\\raska\\Cranfield data\\cloud computing\\sorted_data*.csv"
 # PATH = "C:\\Users\\raska\\Cranfield data\\cloud computing\\shuffled_data*.csv"
 # PATH = "C:\\Users\\raska\\Cranfield data\\cloud computing\\repository\\CloudComputingAssignment\\StreamOut"
 
@@ -341,7 +266,7 @@ data = spark.read.option("header", "false").schema(schema).csv(PATH)
 # ending outside this area are treated as outliers and must not be considered in the result computation.
 
 # In[ ]:
-# Converting geospatial coordinates into cell identifiers
+
 convertToCell_udf = udf(lambda lat, lon: geoUtils.convertToCell(lat,lon), T.StringType())
 data = data.withColumn('cell_start', convertToCell_udf('pickup_latitude', 'pickup_longitude'))\
     .withColumn('cell_end', convertToCell_udf('dropoff_latitude', 'dropoff_longitude'))
@@ -352,22 +277,19 @@ data = data.withColumn('origin->dest', assignRouteID_udf('pickup_latitude', 'pic
     
 
 # In[ ]:
-# Grouping data by window 
 windowedData = data \
     .groupBy(window(data['dropoff_datetime'], "30 minutes", "30 minutes"), data['origin->dest']) \
     .count()
 # In[ ]:
-# Generating final data
+    
 
 w = Window.partitionBy('window').orderBy(col('count').desc())
 indexer = Window.partitionBy(lit(1)).orderBy(lit(1))
 
-# Dataset of ranked and ordered windowed route data according to route frequency
 rankedData = windowedData.orderBy(col('window').asc()).withColumn("rank", row_number().over(w)).filter(col('rank')<=10)
 rankedData = rankedData.withColumn("windowID", col("window").getField("end"))
 rankedData = rankedData.orderBy(col('windowID').asc(), col('rank').asc())
 
-#Dataset of the total routes in a given window
 windowCountData = windowedData.withColumn('tripsPerWindow', F.sum('count').over(w))
 windowCountData = windowCountData.dropDuplicates(['window'])
 windowCountData = windowCountData.withColumn("windowID", col("window").getField("end"))
@@ -391,10 +313,9 @@ rankedOut = rankedData.select('origin->dest', 'count',
                         'rank', 'windowID')
 rankedOut.write.csv('rankedOut')
 
-
+# rankedData.write.csv('rankedData.csv')
 # In[ ]:
-# This section was used for visualisation purposes - at the moment it is not used
-    
+
 # import matplotlib.dates as mdates
 
 # rawOutput['windowID'] = rawOutput['windowID'].astype(str)

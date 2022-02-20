@@ -1,4 +1,213 @@
 # -*- coding: utf-8 -*-
+"""
+Created on Sat Feb 19 14:47:09 2022
+
+@author: raska
+"""
+
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Feb 15 19:42:38 2022
+
+@author: raska
+"""
+import time
+import pandas as pd
+import os
+import numpy as np
+from os import listdir
+from os.path import isfile, join
+
+class streamSimulator():
+    def streamCSV(mainFile, folderName, dropColumns=None, batchSize = 100, timeInterval=1, fileWindow=None):
+        idx = 0
+        print('Streaming data ... \n Batchsize:', batchSize, '\n From CSVfile at: ', mainFile, '\n to directory .\\', folderName, '\n')
+        for chunk in pd.read_csv(mainFile, chunksize=batchSize, index_col=False, header=None):
+            if dropColumns is not None:
+                chunk = chunk.drop(dropColumns, axis=1)
+            os.makedirs(folderName, exist_ok=True)  
+            # chunk.to_csv('folder/subfolder/out.csv')  
+            fname = str(folderName)+'/stream_'+str(idx)+'.csv'
+            chunk.to_csv(fname, index=False, header=None)
+
+            if fileWindow is not None:
+                if idx >= 0:
+                    streamSimulator.deleteJunk(idx-fileWindow, folderName)
+            idx+=1
+            time.sleep(timeInterval)
+        print('Sent ', idx, ' streams.')
+    
+    def deleteJunk(idx, foldername):
+        fname = str(foldername)+'/stream_'+str(idx)+'.csv'
+        if(os.path.exists(fname) and os.path.isfile(fname)):
+          os.remove(fname)
+          
+    def splitStreamCSV(mainFile, headers, takeHeaders=None, batchSize = 100, timeInterval=1, fileWindow=None):
+        if takeHeaders is None:
+            print('streamError: No takeHeaders specified!')
+        else:
+            idx = 0
+            saveToDir = 'splitStreamOut'
+            os.makedirs(saveToDir, exist_ok=True)
+            fullData = pd.read_csv(mainFile, chunksize=batchSize, index_col=False)
+            # fullData = fullData.sample(frac=1).reset_index(drop=True)
+            print('Streaming data ... \n Batchsize:', batchSize, '\n From CSVfile at: ', mainFile, '\n To directory at: HERE\\', str(takeHeaders), '\n')
+            for chunk in fullData:
+                chunk.columns = headers
+                for eachColumn in takeHeaders:
+                    localDir = str(saveToDir)+'/'+str(eachColumn)
+                    valChunk = chunk[eachColumn]
+                    os.makedirs(localDir, exist_ok=True)
+                    fname = str(localDir)+'/stream_'+str(idx)+'.csv'
+                    valChunk.to_csv(fname, index=False, header=None)
+                    if fileWindow is not None:
+                        if idx >= 0:
+                            streamSimulator.deleteJunk(idx-fileWindow, localDir)
+                idx+=1
+                time.sleep(timeInterval)
+            print('Sent ', idx, ' streams.')
+            pass
+            
+    def sortCSV(farePath, tripPath, readRows=1000):
+        fareFileNameList = [f for f in listdir(farePath) if isfile(join(farePath, f))]
+        tripFileNameList = [f for f in listdir(tripPath) if isfile(join(tripPath, f))]
+        # data = pd.read_csv(fileLoc, index_col=False, header=None, nrows = 1000)
+        selHeaders=["medallion", "hack_license", "pickup_datetime", "dropoff_datetime", "trip_time_in_secs", "trip_distance", "pickup_longitude", "pickup_latitude", "dropoff_longitude", "dropoff_latitude", "payment_type", "fare_amount", "surcharge", "mta_tax", "tip_amount", "tolls_amount", "total_amount"]
+        appendedData = []
+        for fareFile, tripFile in zip(fareFileNameList, tripFileNameList):
+            fareFileLoc = str(farePath)+'\\'+str(fareFile)  
+            tripFileLoc = str(tripPath)+'\\'+str(tripFile)  
+            fareData = pd.read_csv(fareFileLoc, header=0, nrows= readRows)
+            tripData= pd.read_csv(tripFileLoc, header=0, nrows = readRows)
+            # print(tripData.columns)
+            colsToUse = fareData.columns.difference(tripData.columns)
+            combined = pd.merge(tripData, fareData[colsToUse], left_index=True, right_index=True, how='outer')
+            # print(combined.columns)
+            combined.columns = combined.columns.str.replace(' ', '')
+            clean = combined[selHeaders]
+            clean = clean.loc[:,~clean.columns.duplicated()]
+            appendedData.append(clean)
+        appendedData = pd.concat(appendedData)
+        return appendedData
+        # print(onlyfiles)
+        # combined_csv = pd.concat( [ pd.read_csv(f) for f in filenames ] )
+        #     data = pd.read_csv(fileLoc, index_col=False, header=None, nrows = 1000)
+        #     data = data.sample(frac=20, replace=True).reset_index(drop=True)
+        #     appendedData.append(data)
+        # appendedData = pd.concat(appendedData)
+class geoUtils():
+    def assignRouteID(lat_start, lon_start, lat_end, lon_end):
+        """
+        Legacy function (not in use)
+
+        Parameters
+        ----------
+        lat_start : TYPE
+            DESCRIPTION.
+        lon_start : TYPE
+            DESCRIPTION.
+        lat_end : TYPE
+            DESCRIPTION.
+        lon_end : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
+
+        """
+        cellStartLatitude = 41.474937
+        cellStartLongitude = -74.91358
+        cellLatitudeSize = 0.004491556
+        cellLongitudeSize = 0.005986
+        latUnit_start = int(np.floor(np.abs(cellStartLatitude-lat_start)/cellLatitudeSize))
+        lonUnit_start = int(np.floor((lon_start-cellStartLongitude)/cellLongitudeSize))
+        latUnit_end = int(np.floor(np.abs(cellStartLatitude-lat_end)/cellLatitudeSize))
+        lonUnit_end = int(np.floor((lon_end-cellStartLongitude)/cellLongitudeSize))
+        if latUnit_start<=300 and lonUnit_start<=300 and latUnit_end<=300 and lonUnit_end<=300:
+            return str(lonUnit_start)+'.'+str(latUnit_start)+'->'+str(lonUnit_end)+'.'+str(latUnit_end)
+        else:
+            return str(999.999)+'->'+str(999.999)
+        
+    def convertToCell(lat, lon):
+        """
+
+
+        Parameters
+        ----------
+        lat : TYPE
+            DESCRIPTION.
+        lon : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
+
+        """
+        cellStartLatitude = 41.474937
+        cellStartLongitude = -74.91358
+        cellLatitudeSize = 0.004491556
+        cellLongitudeSize = 0.005986
+        latUnit = int(np.floor(np.abs(cellStartLatitude-lat)/cellLatitudeSize))
+        lonUnit = int(np.floor((lon-cellStartLongitude)/cellLongitudeSize))
+        if lonUnit<=300 and latUnit<=300:
+            return str(lonUnit)+'.'+str(latUnit)
+        else:
+            return str(999.999)
+        
+    def convertLat(lat):
+        """
+        Converts latitude into cell
+
+        Parameters
+        ----------
+        lat : float
+            Latitude.
+
+        Returns
+        -------
+        float
+            Y - cell of latitude.
+
+        """
+        cellStartLatitude = 41.474937
+        cellLatitudeSize = 0.004491556
+        latUnit = int(np.floor(np.abs(cellStartLatitude-lat)/cellLatitudeSize))
+        if latUnit<=300:
+            return latUnit
+        else:
+            return 999
+        
+    def convertLon(lon):
+        """
+        Converts longitude into cell
+
+        Parameters
+        ----------
+        lon : float
+            Longitude.
+
+        Returns
+        -------
+        float
+            X - cell of longitude.
+
+        """
+        cellStartLongitude = -74.91358
+        cellLongitudeSize = 0.005986
+        lonUnit = int(np.floor((lon-cellStartLongitude)/cellLongitudeSize))
+        if lonUnit<=300:
+            return lonUnit
+        else:
+            return 999
+        
+class tools():
+    def sparkDFShape(self):
+        return (self.count(), len(self.columns))
+
 
 # In[1]:
 import findspark
@@ -12,11 +221,8 @@ from pyspark.sql.types import StructType
 from pyspark.sql.functions import udf
 from pyspark.sql import types as T
 import pyspark.sql.functions as F
-from pyspark.sql.functions import count, avg
-from pyspark.sql.window import Window
 
-from lib import tools
-from lib import geoUtils
+from pyspark.sql.window import Window
 
 conf = pyspark.SparkConf().setAppName('SparkApp').set("spark.executor.memory", "9g").set("spark.driver.memory", "9g")
 sc = pyspark.SparkContext(conf=conf)
@@ -43,9 +249,9 @@ schema = StructType([
     StructField("tolls_amount", DoubleType(), True),
     StructField("total_amount", DoubleType(), True)
                     ])
-# PATH = "/root/sorted_data*.csv"
+PATH = "/root/sorted_data*.csv"
 # PATH = "C:\\Users\\raska\\Cranfield data\\cloud computing\\sorted_data*.csv"
-PATH = "C:\\Users\\raska\\Cranfield data\\cloud computing\\shuffled_data*.csv"
+# PATH = "C:\\Users\\raska\\Cranfield data\\cloud computing\\shuffled_data*.csv"
 # PATH = "C:\\Users\\raska\\Cranfield data\\cloud computing\\repository\\CloudComputingAssignment\\StreamOut"
 
 data = spark.read.option("header", "false").schema(schema).csv(PATH)
@@ -76,7 +282,7 @@ windowedData = data \
     .count()
 # In[ ]:
     
-from pyspark.sql.window import Window
+
 w = Window.partitionBy('window').orderBy(col('count').desc())
 indexer = Window.partitionBy(lit(1)).orderBy(lit(1))
 
@@ -94,117 +300,48 @@ windowCountData = windowCountData.withColumn("windowID", col("window").getField(
 # windowList = windowList['windowID'].astype('str')
 
 # for windowName in windowList:
-    # rankedData.filter(rankedData.windowID.contains(windowName)).show()
+#     rankedData.filter(rankedData.windowID.contains(windowName)).show()
 # --------------------------------------------------------------------------------------
 
 # In[ ]:
-countOutput = windowCountData.toPandas()
-rawOutput = rankedData.toPandas()
+
+windowCountOut = windowCountData.select('origin->dest', 'count',
+                        'tripsPerWindow', 'windowID')
+windowCountOut.coalesce(1).write.csv('windowCountOut')
+
+rankedOut = rankedData.select('origin->dest', 'count',
+                        'rank', 'windowID')
+rankedOut.write.csv('rankedOut')
+
+# rankedData.write.csv('rankedData.csv')
 # In[ ]:
 
-import pandas as pd
-import datetime as dt
-import matplotlib.dates as mdates
+# import matplotlib.dates as mdates
 
-rawOutput['windowID'] = rawOutput['windowID'].astype(str)
-rawOutput['endtime']= rawOutput['windowID'].str[11:16]
-sorting = rawOutput.groupby(['endtime', 'origin->dest'], as_index=False)['count'].mean()
-sorting['localRank'] = sorting.groupby('endtime')['count'].rank(ascending=False, method = 'first')
+# rawOutput['windowID'] = rawOutput['windowID'].astype(str)
+# rawOutput['endtime']= rawOutput['windowID'].str[11:16]
+# sorting = rawOutput.groupby(['endtime', 'origin->dest'], as_index=False)['count'].mean()
+# sorting['localRank'] = sorting.groupby('endtime')['count'].rank(ascending=False, method = 'first')
 
-# n. average trips in a 30min window for the dataset
-countOutput['windowID'] = countOutput['windowID'].astype(str)
-countOutput['endtime']= countOutput['windowID'].str[11:16]
-countSorting = countOutput.groupby(['endtime'], as_index=False)['count'].mean() 
-countSorting['endtime'] = pd.to_datetime(countSorting['endtime'], format = '%H:%M')
+# # n. average trips in a 30min window for the dataset
+# countOutput['windowID'] = countOutput['windowID'].astype(str)
+# countOutput['endtime']= countOutput['windowID'].str[11:16]
+# countSorting = countOutput.groupby(['endtime'], as_index=False)['count'].mean() 
+# countSorting['endtime'] = pd.to_datetime(countSorting['endtime'], format = '%H:%M')
 
-# top routes for each day in a 30min window for the dataset
-topRoutesInDay = sorting[sorting['localRank']<=10]
-topRoutesInDay = topRoutesInDay.sort_values(by=['endtime','localRank'], ascending=[True, True]) # n. average trips for a route in a 30 min window
+# # top routes for each day in a 30min window for the dataset
+# topRoutesInDay = sorting[sorting['localRank']<=10]
+# topRoutesInDay = topRoutesInDay.sort_values(by=['endtime','localRank'], ascending=[True, True]) # n. average trips for a route in a 30 min window
 
-import matplotlib.pyplot as plt
-plt.rcParams["figure.figsize"] = (14,3)
-
-plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-plt.gca().xaxis.set_major_locator(mdates.DayLocator())
-plt.plot(countSorting['endtime'],countSorting['count'])
-plt.fill_between(countSorting['endtime'], countSorting['count'], color='#539ecd')
-plt.xticks(countSorting['endtime'], rotation='vertical')
-plt.title('NYC taxi trip busiest times')
-plt.xlabel('Time of day')
-plt.ylabel('Average routes taken ')
-
-# plt.rcParams["figure.figsize"] = plt.rcParamsDefault["figure.figsize"] # Reset figsize
-# DONE: conv to pandas, save to CSV
-#DONE: show per partition
-
-#DONE: Rank per window and limit
-#DONE: Aggregate windowedData and display windows
-
-# query=windowedData.writeStream\
-#      .queryName("t1_stream")\
-#      .foreachBatch(batchFunction)\
-#      .outputMode('complete')\
-#      .option("truncate", False)\
-#      .start().awaitTermination()
-     # .trigger(processingTime='5 seconds')\
-
-# from IPython.display import display, clear_output
-# from time import sleep
-
-# while True:
-#     clear_output(wait=True)
-#     display(query.status)
-#     display(spark.sql('SELECT * FROM t1_stream').show())
-#     sleep(10)
-
-# In[ ]:
-
-
-# query2 = windowedData.select('window').collect() \
-#     .writeStream.format("memory") \
-#     .queryName("window_stream") \
-#     .outputMode("complete") \
-#     .option("truncate", False) \
-#     .start()
-
-# query2.awaitTermination()
-# window_array = [row.window for row in window_list]
-
-
-# In[ ]:
-
-
-# from IPython.display import display, clear_output
-# from time import sleep
-
-
-# while True:
-#     clear_output(wait=True)
-# #     display(query.status)
-#     display(spark.sql('SELECT * FROM t1_stream WHERE count=5 ').show(10))
-#     sleep(1)
-
-
-# In[ ]:
-
-
-
-# frequentRoutes = windowedData.groupBy(["route_ID"]).agg(count("*")).orderBy("count(1)",ascending=False)
-
-# .orderBy("count(1)",ascending=False)
-# .withWatermark("trip_endtime", "30 minutes")
-
-
-# In[ ]:
-
-
-# windowedData.printSchema()
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
+# import matplotlib.pyplot as plt
+# # plt.rcParams["figure.figsize"] = (14,3)
+# fig = plt.figure(figsize=(15,10))
+# plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+# plt.gca().xaxis.set_major_locator(mdates.DayLocator())
+# plt.plot(countSorting['endtime'],countSorting['count'])
+# plt.fill_between(countSorting['endtime'], countSorting['count'], color='#539ecd')
+# plt.xticks(countSorting['endtime'], rotation='vertical')
+# plt.title('NYC taxi trip busiest times')
+# plt.xlabel('Time of day')
+# plt.ylabel('Average no. of distinct routes taken')
+# plt.savefig('time_plot.pdf',bbox_inches='tight', dpi=150)  
